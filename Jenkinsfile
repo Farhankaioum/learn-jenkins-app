@@ -20,5 +20,18 @@ pipeline {
                 '''
             }
         }
+        stage('Test') {
+            steps {
+                echo "Test stage"
+                if (fileExists('build')) {
+                    echo "File found."
+                } else {
+                    echo "File not found."
+                }
+                sh '''
+                
+                '''
+            }
+        }
     }
 }
