@@ -93,8 +93,37 @@ pipeline {
                     node_modules/.bin/netlify deploy --dir=build --json > deploy-result.json
                     node_modules/.bin/node-jq -r '.deploy_url' deploy-result.json
                 '''
+                script {
+                    env.STAGING_URL = sh(script: "node_modules/.bin/node-jq -r '.deploy_url' deploy-result.json", returnStdout: true)
+                }
             }
         }
+
+        stage('Stage E2E') {
+            agent {
+                docker {
+                    image 'mcr.microsoft.com/playwright:v1.39.0-jammy'
+                    reuseNode true
+                }
+            }
+
+            environment {
+                CI_ENVIRONMENT_URL = "${env.STAGING_URL}"
+            }
+
+            steps {
+                sh '''
+                    npx playwright test --reporter=html
+                '''
+                }
+
+                post {
+                always {
+                    publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, icon: '', keepAll: false, reportDir: 'playwright-report', reportFiles: 'index.html', reportName: 'Playwright E2E Staging', reportTitles: '', useWrapperFileDirectly: true])
+                }
+            }
+        }
+
 
         stage('Approval') {
             steps {
@@ -124,29 +153,29 @@ pipeline {
         }
 
         stage('Prod E2E') {
-                    agent {
-                        docker {
-                            image 'mcr.microsoft.com/playwright:v1.39.0-jammy'
-                            reuseNode true
-                        }
-                    }
-
-                    environment {
-                        CI_ENVIRONMENT_URL = 'https://keiuom.netlify.app'
-                    }
-
-                    steps {
-                        sh '''
-                            npx playwright test --reporter=html
-                        '''
-                        }
-
-                     post {
-                        always {
-                            publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, icon: '', keepAll: false, reportDir: 'playwright-report', reportFiles: 'index.html', reportName: 'Playwright E2E Report', reportTitles: '', useWrapperFileDirectly: true])
-                        }
-                    }
+            agent {
+                docker {
+                    image 'mcr.microsoft.com/playwright:v1.39.0-jammy'
+                    reuseNode true
                 }
+            }
+
+            environment {
+                CI_ENVIRONMENT_URL = 'https://keiuom.netlify.app'
+            }
+
+            steps {
+                sh '''
+                    npx playwright test --reporter=html
+                '''
+                }
+
+                post {
+                always {
+                    publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, icon: '', keepAll: false, reportDir: 'playwright-report', reportFiles: 'index.html', reportName: 'Playwright E2E Prod', reportTitles: '', useWrapperFileDirectly: true])
+                }
+            }
+        }
 
     }
 }
